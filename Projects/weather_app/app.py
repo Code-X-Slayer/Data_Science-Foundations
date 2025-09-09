@@ -35,7 +35,6 @@ Using precise coordinates or full names ensures more accurate weather data.
 user_location = st.text_input("Enter location:")
 st.markdown("""
 You can enter:  
-- current ip (.)
 - city name (e.g. Paris)  
 - latitude and longitude (e.g. 48.8567,2.3508)  
 - US ZIP code (e.g. 10001)  
@@ -43,9 +42,9 @@ You can enter:
 - Canada postal code (e.g. G2J)  
 - METAR code (e.g. metar:EGLL)  
 - airport code (e.g. iata:DXB)  
-- IP lookup (e.g. auto:ip)  
-- IP address (e.g. 100.0.0.1)
 """)
+
+st.warning("Auto location using '.' or 'auto:ip' is not supported on Streamlit Cloud. Please enter your city name or coordinates for accurate weather data.")
 
 forecast_days = st.slider("Select forecast days (1-2)",1,2,value=1)
 
@@ -98,46 +97,45 @@ def get_forecast_weather(location,days):
         st.error(f"Error in fetching forecast weather data: {r.status_code}")
         return None
 
-query_location = user_location.strip() if user_location.strip()!='.' else "auto:ip"
+query_location = user_location.strip()
 
-
-if 'selected_location_index' not in st.session_state:
-    st.session_state.selected_location_index = 0
-if 'validated_location' not in st.session_state:
+if query_location in ("", ".", "auto:ip"):
     st.session_state.validated_location = None
+    st.warning("Auto location is not supported on Streamlit Cloud. Please enter your coordinates or city name.")
 
-locations = []
-
-if query_location not in ("","auto:ip"):
-    locations = validate_location(query_location)
-
-if not locations and query_location not in ("","auto:ip"):
-    st.warning("No locations found, please enter a valid location details.")
-    st.session_state.validated_location = None
-    
-elif len(locations)==1:
-    loc = locations[0]
-    st.session_state.validated_location = f"{loc['lat']},{loc['lon']}"
-    
-elif len(locations)>1:
-    options = ["-- Select a location --"] + [f"{loc['name']}, {loc['region']}, {loc['country']}" for loc in locations]
+else:
     if 'selected_location_index' not in st.session_state:
         st.session_state.selected_location_index = 0
-    selection= st.selectbox(
-        "Multiple locations found, please select:",
-        options,
-        index=st.session_state.selected_location_index,
-        key="location_select_box"
-    )
-    if selection != "-- Select a location --":
-        st.session_state.selected_location_index = options.index(selection)
-        selected_loc = locations[st.session_state.selected_location_index-1]
-        st.session_state.validated_location = f"{selected_loc['lat']},{selected_loc['lon']}"
-    else:
+    if 'validated_location' not in st.session_state:
         st.session_state.validated_location = None
 
-elif query_location in ("", "auto:ip"):
-    st.session_state.validated_location = query_location
+    locations = validate_location(query_location)
+
+    if not locations:
+        st.warning("No locations found, please enter a valid location details.")
+        st.session_state.validated_location = None
+        
+    elif len(locations)==1:
+        loc = locations[0]
+        st.session_state.validated_location = f"{loc['lat']},{loc['lon']}"
+        
+    elif len(locations)>1:
+        options = ["-- Select a location --"] + [f"{loc['name']}, {loc['region']}, {loc['country']}" for loc in locations]
+        if 'selected_location_index' not in st.session_state:
+            st.session_state.selected_location_index = 0
+        selection= st.selectbox(
+            "Multiple locations found, please select:",
+            options,
+            index=st.session_state.selected_location_index,
+            key="location_select_box"
+        )
+        if selection != "-- Select a location --":
+            st.session_state.selected_location_index = options.index(selection)
+            selected_loc = locations[st.session_state.selected_location_index-1]
+            st.session_state.validated_location = f"{selected_loc['lat']},{selected_loc['lon']}"
+        else:
+            st.session_state.validated_location = None
+
 
 if button1.button("Get Weather"):
     st.session_state.pop('current_weather', None)
